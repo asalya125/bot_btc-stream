@@ -36,8 +36,12 @@ if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN не найден! Создайте файл .env")
 
 # Настройки скрапинга
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0"
-REQUEST_TIMEOUT = 10  # секунд
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
+REQUEST_TIMEOUT = 15  # секунд
 
 # Простой кэш: {ключ: (значение, время)}
 _cache = {}
@@ -51,12 +55,18 @@ CACHE_TTL = 60  # секунд
 def fetch_html(url):
     """Загружает HTML страницы."""
     try:
-        headers = {"User-Agent": USER_AGENT}
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate",
+            "Connection": "keep-alive",
+        }
         response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         return response.text
     except Exception as e:
-        print(f"[ERROR] {e}")
+        print(f"[ERROR] {url}: {e}")
         return None
 
 
@@ -76,35 +86,48 @@ def set_cached(key, value):
 
 def fetch_btc_price():
     """
-    Парсит цену BTC с CoinGecko.
-    URL: https://www.coingecko.com/en/coins/bitcoin
+    Парсит цену BTC с CoinCap.
+    URL: https://coincap.io/assets/bitcoin
     """
-    # Проверяем кэш
     cached = get_cached("btc_price")
     if cached:
         return cached
     
-    html = fetch_html("https://www.coingecko.com/en/coins/bitcoin")
-    if not html:
-        return None
+    # Источник 1: CoinCap
+    html = fetch_html("https://coincap.io/assets/bitcoin")
+    if html:
+        try:
+            soup = BeautifulSoup(html, "lxml")
+            # Ищем цену в тексте страницы
+            text = soup.get_text()
+            # Паттерн: $XXX,XXX.XX
+            match = re.search(r"\$\s*([\d,]+\.\d{2})", text)
+            if match:
+                price_str = match.group(1).replace(",", "")
+                price = float(price_str)
+                if price > 1000:  # BTC точно > $1000
+                    set_cached("btc_price", price)
+                    return price
+        except Exception as e:
+            print(f"[ERROR] CoinCap parse: {e}")
     
-    try:
-        soup = BeautifulSoup(html, "lxml")
-        
-        # Ищем элемент с ценой
-        price_elem = soup.find("span", {"data-converter-target": "price"})
-        if price_elem:
-            text = price_elem.get_text(strip=True)
-            # Убираем $ и запятые, парсим число
-            cleaned = re.sub(r"[^\d.]", "", text)
-            price = float(cleaned)
-            set_cached("btc_price", price)
-            return price
-        
-        return None
-    except Exception as e:
-        print(f"[ERROR] Парсинг BTC: {e}")
-        return None
+    # Источник 2: Blockchain.com
+    html2 = fetch_html("https://www.blockchain.com/explorer/prices/btc")
+    if html2:
+        try:
+            soup = BeautifulSoup(html2, "lxml")
+            text = soup.get_text()
+            match = re.search(r"\$\s*([\d,]+\.?\d*)", text)
+            if match:
+                price_str = match.group(1).replace(",", "")
+                price = float(price_str)
+                if price > 1000:
+                    set_cached("btc_price", price)
+                    return price
+        except Exception as e:
+            print(f"[ERROR] Blockchain parse: {e}")
+    
+    return None
 
 
 def fetch_fear_greed():
@@ -124,30 +147,34 @@ def fetch_fear_greed():
         soup = BeautifulSoup(html, "lxml")
         text = soup.get_text()
         
-        # Ищем число рядом с "Now"
+        # Ищем число рядом с "Now" или "Fear and Greed Index"
         match = re.search(r"Now[^\d]*(\d{1,3})", text, re.IGNORECASE)
+        if not match:
+            # Альтернативный паттерн
+            match = re.search(r"Index[^\d]*(\d{1,3})", text, re.IGNORECASE)
+        
         if match:
             value = int(match.group(1))
-            
-            # Определяем текстовый label
-            if value <= 25:
-                label = "Extreme Fear"
-            elif value <= 45:
-                label = "Fear"
-            elif value <= 55:
-                label = "Neutral"
-            elif value <= 75:
-                label = "Greed"
-            else:
-                label = "Extreme Greed"
-            
-            result = (value, label)
-            set_cached("fear_greed", result)
-            return result
+            if 0 <= value <= 100:
+                # Определяем текстовый label
+                if value <= 25:
+                    label = "Extreme Fear"
+                elif value <= 45:
+                    label = "Fear"
+                elif value <= 55:
+                    label = "Neutral"
+                elif value <= 75:
+                    label = "Greed"
+                else:
+                    label = "Extreme Greed"
+                
+                result = (value, label)
+                set_cached("fear_greed", result)
+                return result
         
         return None, None
     except Exception as e:
-        print(f"[ERROR] Парсинг Fear&Greed: {e}")
+        print(f"[ERROR] Fear&Greed parse: {e}")
         return None, None
 
 
