@@ -86,46 +86,29 @@ def set_cached(key, value):
 
 def fetch_btc_price():
     """
-    Парсит цену BTC с CoinCap.
-    URL: https://coincap.io/assets/bitcoin
+    Получает цену BTC через API Blockchain.com.
+    URL: https://blockchain.info/ticker
     """
     cached = get_cached("btc_price")
     if cached:
         return cached
     
-    # Источник 1: CoinCap
-    html = fetch_html("https://coincap.io/assets/bitcoin")
-    if html:
-        try:
-            soup = BeautifulSoup(html, "lxml")
-            # Ищем цену в тексте страницы
-            text = soup.get_text()
-            # Паттерн: $XXX,XXX.XX
-            match = re.search(r"\$\s*([\d,]+\.\d{2})", text)
-            if match:
-                price_str = match.group(1).replace(",", "")
-                price = float(price_str)
-                if price > 1000:  # BTC точно > $1000
-                    set_cached("btc_price", price)
-                    return price
-        except Exception as e:
-            print(f"[ERROR] CoinCap parse: {e}")
-    
-    # Источник 2: Blockchain.com
-    html2 = fetch_html("https://www.blockchain.com/explorer/prices/btc")
-    if html2:
-        try:
-            soup = BeautifulSoup(html2, "lxml")
-            text = soup.get_text()
-            match = re.search(r"\$\s*([\d,]+\.?\d*)", text)
-            if match:
-                price_str = match.group(1).replace(",", "")
-                price = float(price_str)
-                if price > 1000:
-                    set_cached("btc_price", price)
-                    return price
-        except Exception as e:
-            print(f"[ERROR] Blockchain parse: {e}")
+    # Используем публичное API (возвращает JSON)
+    url = "https://blockchain.info/ticker"
+    try:
+        response = requests.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        data = response.json()
+        
+        # JSON формат: {"USD": {"last": 90000.0, ...}, ...}
+        if "USD" in data and "last" in data["USD"]:
+            price = float(data["USD"]["last"])
+            if price > 0:
+                set_cached("btc_price", price)
+                return price
+                
+    except Exception as e:
+        print(f"[ERROR] Blockchain API error: {e}")
     
     return None
 
@@ -287,6 +270,14 @@ def main():
         return
     
     print("✨ Запущен! Ctrl+C для остановки.")
+    
+    # Self-check on startup
+    print("🔍 Выполняю проверку источников данных...")
+    snapshot = get_market_snapshot()
+    if snapshot.get("btc_price"):
+        print(f"✅ Данные получены: BTC=${snapshot['btc_price']}")
+    else:
+        print("⚠️ Ошибка получения данных при запуске!")
     
     # Бесконечный цикл опроса Telegram
     bot.infinity_polling()
