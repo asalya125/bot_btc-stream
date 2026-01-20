@@ -1,6 +1,4 @@
 # Crypto Market Bot — Зависимости
 pyTelegramBotAPI
 requests
-beautifulsoup4
-lxml
 python-dotenv

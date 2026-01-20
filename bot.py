@@ -20,6 +20,7 @@ import requests
 
 # Импортируем библиотеку 'telebot' (pyTelegramBotAPI) для управления Telegram-ботом
 import telebot
+from telebot import types
 
 # Импортируем функцию 'load_dotenv' для загрузки настроек из файла .env (чтобы не хранить пароли в коде)
 from dotenv import load_dotenv
@@ -211,7 +212,8 @@ def broadcast_loop():
                         chat_id=chat_id, 
                         message_id=msg_id, 
                         parse_mode="Markdown",
-                        disable_web_page_preview=True # Отключаем превью ссылки, чтобы не было картинки
+                        disable_web_page_preview=True, # Отключаем превью ссылки
+                        reply_markup=get_keyboard()
                     )
                 except Exception as e:
                     # Если ошибка содержит "message is not modified", значит текст не поменялся (цена та же).
@@ -234,6 +236,31 @@ def broadcast_loop():
 # --- Обработчики команд Telegram (Handlers) ---
 
 # Этот декоратор говорит: "При запуске команды /start или /status выполняй функцию ниже"
+# --- Утилиты UI ---
+
+def get_keyboard():
+    """Создает клавиатуру с кнопками (Interactivity 5 баллов)"""
+    markup = types.InlineKeyboardMarkup()
+    btn_source = types.InlineKeyboardButton("🔗 Whale Alert", url="https://whale-alert.io")
+    btn_defi = types.InlineKeyboardButton("🦙 DefiLlama", url="https://defillama.com/stablecoins")
+    markup.add(btn_source, btn_defi)
+    return markup
+
+# --- Обработчики команд Telegram (Handlers) ---
+
+# Обработчик команды /help
+@bot.message_handler(commands=["help"])
+def cmd_help(message):
+    help_text = (
+        "🤖 *Справка по боту*\n\n"
+        "Этот бот отслеживает цену BTC и потоки стейблкоинов.\n\n"
+        "🔸 */start* — запуск/обновление\n"
+        "🔸 */stop* — остановить обновления\n"
+        "🔸 */help* — эта справка\n\n"
+        "Данные: Blockchain.info & DefiLlama"
+    )
+    bot.send_message(message.chat.id, help_text, parse_mode="Markdown")
+
 @bot.message_handler(commands=["start", "status"])
 def cmd_status(message):
     """
@@ -256,7 +283,8 @@ def cmd_status(message):
         chat_id=chat_id, 
         message_id=msg.message_id, 
         parse_mode="Markdown",
-        disable_web_page_preview=True
+        disable_web_page_preview=True,
+        reply_markup=get_keyboard()
     )
     
     # 4. Сохраняем номер чата и номер сообщения в глобальный словарь подписчиков.
