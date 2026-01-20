@@ -15,6 +15,9 @@ requirements.txt — зависимости
 ```bash
 pip install -r requirements.txt
 ```
+```bash
+pip3 install -r requirements.txt
+```
 
 ## Настройка
 
@@ -49,3 +52,4 @@ python bot.py
 - Использует **Long Polling** для получения команд
 - Работает в многопоточном режиме (`threading`)
 - Эффективно обновляет сообщения (`edit_message_text`), чтобы не засорять чат
+
