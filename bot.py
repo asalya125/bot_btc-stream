@@ -73,7 +73,7 @@ def fetch_btc_price():
         url = "https://blockchain.info/ticker"
         
         # Делаем GET-запрос к сайту. Ждем ответа не более 10 секунд (timeout=10).
-        resp = requests.get(url, timeout=10)
+        resp = requests.get(url, timeout=10) #это функция, которая отправляет HTTP GET-запрос к указанному URL.
         
         # Если статус ответа не 200 (ОК), эта команда выбросит ошибку.
         resp.raise_for_status()
@@ -102,9 +102,9 @@ def fetch_stablecoin_flow():
         # Делаем запрос (timeout=15 секунд, чуть больше, так как данных много)
         resp = requests.get(url, timeout=15)
         resp.raise_for_status()
-        data = resp.json()
+        data = resp.json()#JSON — это формат для обмена данными между программами. Похож на словарь в Python, но в текстовом виде.
         
-        # Проверяем, есть ли поле 'peggedAssets' в ответе JSON
+        # Проверяем, есть ли поле 'peggedAssets'(список объектов) в ответе JSON
         if "peggedAssets" not in data:
             return None, None
             
@@ -163,7 +163,7 @@ def get_message_text(price, supply, flow):
         supply_text = "N/A"
         
     # Текущее время сервера (чтобы видно было, что бот живой)
-    timestamp = time.strftime("%H:%M:%S")
+    timestamp = time.strftime("%H:%M:%S")#время в строковом формате
     
     # Возвращаем многострочную строку (f-string)
     # Звездочки (*) в тексте нужны для жирного шрифта в Markdown
@@ -199,7 +199,7 @@ def broadcast_loop():
             # Если мы будем перебирать словарь (for key in dict) и удалять из него ключи одновременно,
             # Python выдаст ошибку "dictionary changed size during iteration".
             # Поэтому мы используем LOCK и делаем копию списка (list(subscribers.items())).
-            with LOCK:
+            with LOCK: #это объект-блокировка, который обеспечивает взаимоисключение  для доступа к общим ресурсам из нескольких потоков.
                 targets = list(subscribers.items())
             
             # 4. Проходим по всем подписчикам и редактируем сообщение
@@ -211,9 +211,9 @@ def broadcast_loop():
                         text, 
                         chat_id=chat_id, 
                         message_id=msg_id, 
-                        parse_mode="Markdown",
+                        parse_mode="Markdown", #Включает форматирование текста в сообщении.
                         disable_web_page_preview=True, # Отключаем превью ссылки
-                        reply_markup=get_keyboard()
+                        reply_markup=get_keyboard() #Добавляет клавиатуру с кнопками под сообщением.
                     )
                 except Exception as e:
                     # Если ошибка содержит "message is not modified", значит текст не поменялся (цена та же).
@@ -223,7 +223,7 @@ def broadcast_loop():
                         print(f"⚠️ Ошибка обновления {chat_id}: {e}")
                         with LOCK:
                             # Удаляем chat_id из словаря, чтобы не пытаться обновлять его снова
-                            subscribers.pop(chat_id, None)
+                            subscribers.pop(chat_id, None#удаление по ключу
                             
             # 5. Засыпаем на 60 секунд перед следующим обновлением
             time.sleep(60)
@@ -318,3 +318,4 @@ def main():
 # а не импортируем его как модуль.
 if __name__ == "__main__":
     main()
+
