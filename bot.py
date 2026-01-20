@@ -29,11 +29,19 @@ from dotenv import load_dotenv
 # ============================================
 
 # Загружаем токен из .env файла
+# Загружаем токен из .env файла
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN не найден! Создайте файл .env")
+
+# Настройка прокси (если нужно)
+PROXY_URL = os.getenv("PROXY_URL", "")
+if PROXY_URL:
+    from telebot import apihelper
+    apihelper.proxy = {'https': PROXY_URL}
+    print(f"🌐 Использую прокси: {PROXY_URL}")
 
 # Настройки скрапинга
 USER_AGENT = (
